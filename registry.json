@@ -1,0 +1,42 @@
+[
+  {
+    "category": "Foundation Knowledge",
+    "folder": "Foundation knowledge",
+    "items": [
+      {
+        "slug": "ClassAndObject",
+        "title": "Java Class and Object"
+      },
+      {
+        "slug": "Design Patterns",
+        "title": "Design Patterns (Singleton, Builder, Factory)"
+      },
+      {
+        "slug": "JavaCauTrucDuLieu",
+        "title": "Java Collections & Data Structures"
+      },
+      {
+        "slug": "ThuakeDahinhTruutuong",
+        "title": "OOP: Inheritance - Abstraction - Polymorphism"
+      }
+    ]
+  },
+  {
+    "category": "Interview Strategies",
+    "folder": "Interview Startegies",
+    "items": [
+      {
+        "slug": "Algorhythm_Patterns",
+        "title": "Algorithm Patterns"
+      },
+      {
+        "slug": "Java_BackEnd_Interview",
+        "title": "Java Backend Interview"
+      },
+      {
+        "slug": "JavaCore_doccument",
+        "title": "Java Core Document"
+      }
+    ]
+  }
+]

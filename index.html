@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Java Ecosystem Consultant - Docs</title>
+    <!-- External Assets via CDN -->
+    <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-java.min.js"></script>
+    
+    <style>
+        .sidebar-scroll { max-height: calc(100vh - 4rem); overflow-y: auto; }
+        pre[class*="language-"] { border-radius: 0.5rem; margin: 1.5rem 0; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900">
+
+    <div class="flex min-h-screen">
+        <!-- Sidebar -->
+        <aside class="w-72 bg-white border-r border-slate-200 sticky top-0 h-screen flex flex-col">
+            <div class="p-6 border-b border-slate-100">
+                <h1 class="text-xl font-bold text-indigo-600">Java Knowledge Bank</h1>
+                <p class="text-xs text-slate-500 mt-1 uppercase tracking-wider">Foundation & Interview</p>
+            </div>
+            
+            <!-- Search Input -->
+            <div class="p-4 border-b border-slate-100">
+                <input type="text" id="search-input" placeholder="Tìm kiếm bài viết..."
+                       class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            </div>
+
+            <nav id="sidebar-menu" class="p-4 sidebar-scroll flex-1">
+                <!-- Menu content injected via JS -->
+                <div class="animate-pulse space-y-4">
+                    <div class="h-4 bg-slate-200 rounded w-3/4"></div>
+                    <div class="h-4 bg-slate-200 rounded w-1/2"></div>
+                </div>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 p-8 lg:p-12 max-w-5xl">
+            <article id="content" class="prose prose-slate prose-indigo max-w-none">
+                <div class="text-center py-20">
+                    <h2 class="text-3xl font-light text-slate-400">Chọn một bài viết từ menu để bắt đầu</h2>
+                </div>
+            </article>
+        </main>
+    </div>
+
+    <script>
+        // Core Logic
+        let globalRegistry = []; 
+        const contentArea = document.getElementById('content');
+        const searchInput = document.getElementById('search-input');
+
+        async function initApp() {
+            try {
+                // Ưu tiên fetch registry.json từ server (GitHub Pages)
+                const response = await fetch('./registry.json');
+                if (!response.ok) throw new Error("Could not fetch registry.json");
+                globalRegistry = await response.json();
+                
+                renderMenu(globalRegistry);
+
+                // Phase 4: Handle Initial Route & Hash Changes
+                window.addEventListener('hashchange', handleRouting);
+                handleRouting(); 
+
+                // Cảnh báo nếu chạy trên Chrome/Edge qua giao thức file://
+                if (window.location.protocol === 'file:') {
+                    console.warn("CORS Warning: Fetching Markdown files might fail on Chrome/Edge when opened via file://. Try Firefox or host on GitHub Pages.");
+                }
+
+                // Add event listener for search input
+                searchInput.addEventListener('input', (event) => {
+                    filterMenu(event.target.value);
+                });
+            } catch (err) {
+                console.error("Failed to load registry:", err);
+                const isLocal = window.location.protocol === 'file:';
+                contentArea.innerHTML = `
+                    <div class="text-center py-20">
+                        <div class="text-red-500 text-xl font-bold mb-4">Lỗi: Không thể tải danh mục cấu hình.</div>
+                        <div class="max-w-md mx-auto text-left bg-white p-6 rounded-lg shadow-sm border border-slate-200">
+                            <p class="text-slate-600 mb-2"><b>Cách khắc phục:</b></p>
+                            <ul class="list-disc ml-5 text-sm text-slate-600 space-y-2">
+                                <li>${isLocal ? '<span class="text-red-600 font-bold">Quan trọng:</span> Bạn đang mở file trực tiếp. Hãy chuột phải vào index.html và chọn <b>Open with Live Server</b>.' : 'Đảm bảo file <b>registry.json</b> nằm cùng thư mục với file index.html.'}</li>
+                                <li>Kiểm tra tên file: Phải là <code class="bg-slate-100 px-1">registry.json</code> (không phải registry.json.txt).</li>
+                                <li>Mở <b>Console (F12)</b> để xem chi tiết lỗi kỹ thuật nếu cần.</li>
+                            </ul>
+                        </div>
+                        <p class="text-xs text-slate-400 mt-8">Chi tiết lỗi: ${err.message}</p>
+                    </div>`;
+            }
+        }
+
+        // Phase 4: Routing Engine
+        function handleRouting() {
+            const hash = window.location.hash;
+            if (hash && hash.startsWith('#/')) {
+                const parts = hash.replace('#/', '').split('/');
+                if (parts.length === 2) {
+                    const [folder, slug] = parts;
+                    loadMarkdown(decodeURIComponent(folder), decodeURIComponent(slug));
+                    return;
+                }
+            }
+            renderWelcome();
+        }
+
+        function renderMenu(categories) {
+            const menu = document.getElementById('sidebar-menu');
+            menu.innerHTML = '';
+
+            categories.forEach((cat, catIndex) => {
+                const catDiv = document.createElement('div');
+                catDiv.className = 'mb-2 category-container'; // Add a class for easier selection
+                catDiv.setAttribute('data-category-id', catIndex);
+                
+                const categoryHeader = document.createElement('button');
+                categoryHeader.className = 'flex items-center justify-between w-full px-2 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 rounded transition-colors focus:outline-none';
+                categoryHeader.innerHTML = `
+                    <span>${cat.category}</span>
+                    <svg class="w-4 h-4 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                `;
+                categoryHeader.setAttribute('aria-expanded', 'true'); // Default to expanded
+                categoryHeader.onclick = () => toggleCategory(catIndex);
+                catDiv.appendChild(categoryHeader);
+
+                const itemList = document.createElement('ul');
+                itemList.id = `category-items-${catIndex}`;
+                itemList.className = 'mt-1 space-y-1 pl-4 border-l border-slate-200'; // Indent items
+
+                cat.items.forEach((item, itemIndex) => {
+                    const listItem = document.createElement('li');
+                    listItem.setAttribute('data-item-id', `${catIndex}-${itemIndex}`); // Unique ID for item
+                    listItem.innerHTML = `
+                        <a href="#/${cat.folder}/${item.slug}"
+                           data-path="${cat.folder}/${item.slug}"
+                           class="block px-2 py-2 text-sm text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 rounded transition-colors">
+                            ${item.title}
+                        </a>
+                    `;
+                    itemList.appendChild(listItem);
+                });
+                catDiv.appendChild(itemList);
+                menu.appendChild(catDiv);
+            });
+        }
+
+        function renderWelcome() {
+            contentArea.innerHTML = `
+                <div class="text-center py-20">
+                    <h2 class="text-3xl font-light text-slate-400">Chọn một bài viết từ menu để bắt đầu</h2>
+                </div>
+            `;
+        }
+
+        function toggleCategory(catIndex) {
+            const itemList = document.getElementById(`category-items-${catIndex}`);
+            const header = itemList.previousElementSibling; // The button element
+            const icon = header.querySelector('svg');
+
+            if (itemList.classList.contains('hidden')) {
+                itemList.classList.remove('hidden');
+                header.setAttribute('aria-expanded', 'true');
+                icon.classList.remove('rotate-180');
+            } else {
+                itemList.classList.add('hidden');
+                header.setAttribute('aria-expanded', 'false');
+                icon.classList.add('rotate-180');
+            }
+        }
+
+        function filterMenu(searchTerm) {
+            const normalizedSearchTerm = searchTerm.toLowerCase();
+            const categoryContainers = document.querySelectorAll('.category-container');
+
+            categoryContainers.forEach((catDiv) => {
+                const categoryHeader = catDiv.querySelector('button');
+                const categoryTitleSpan = categoryHeader.querySelector('span');
+                const categoryTitle = categoryTitleSpan.textContent.toLowerCase();
+                const itemList = catDiv.querySelector('ul');
+                const items = itemList.querySelectorAll('li');
+                const icon = categoryHeader.querySelector('svg');
+
+                let categoryMatches = categoryTitle.includes(normalizedSearchTerm);
+                let hasVisibleItems = false;
+
+                items.forEach(item => {
+                    const itemLink = item.querySelector('a');
+                    const itemTitle = itemLink.textContent.toLowerCase();
+                    if (itemTitle.includes(normalizedSearchTerm)) {
+                        item.classList.remove('hidden');
+                        hasVisibleItems = true;
+                    } else {
+                        item.classList.add('hidden');
+                    }
+                });
+
+                if (normalizedSearchTerm === '') {
+                    // If search is empty, show all categories and items, and expand all categories
+                    catDiv.classList.remove('hidden');
+                    itemList.classList.remove('hidden');
+                    categoryHeader.setAttribute('aria-expanded', 'true');
+                    icon.classList.remove('rotate-180');
+                    items.forEach(item => item.classList.remove('hidden')); // Ensure all items are visible
+                } else {
+                    if (categoryMatches || hasVisibleItems) {
+                        catDiv.classList.remove('hidden');
+                        // If there are matching items, expand the category
+                        if (hasVisibleItems) {
+                            itemList.classList.remove('hidden');
+                            categoryHeader.setAttribute('aria-expanded', 'true');
+                            icon.classList.remove('rotate-180');
+                        } else { // If only category matches, or no items match, keep it collapsed
+                            itemList.classList.add('hidden');
+                            categoryHeader.setAttribute('aria-expanded', 'false');
+                            icon.classList.add('rotate-180');
+                        }
+                    } else {
+                        catDiv.classList.add('hidden');
+                    }
+                }
+            });
+        }
+
+        // Phase 4: UI State Management
+        function updateActiveState(folder, slug) {
+            const fullPath = `${folder}/${slug}`;
+            
+            // Reset all active styles
+            document.querySelectorAll('#sidebar-menu a').forEach(a => {
+                a.classList.remove('bg-indigo-100', 'text-indigo-700', 'font-medium');
+                a.classList.add('text-slate-600');
+            });
+
+            // Find and highlight active link
+            const activeLink = document.querySelector(`#sidebar-menu a[data-path="${fullPath}"]`);
+            if (activeLink) {
+                activeLink.classList.add('bg-indigo-100', 'text-indigo-700', 'font-medium');
+                activeLink.classList.remove('text-slate-600');
+                
+                // Auto-expand the parent category if it's closed
+                const itemList = activeLink.closest('ul');
+                if (itemList && itemList.classList.contains('hidden')) {
+                    const catIndex = itemList.id.replace('category-items-', '');
+                    toggleCategory(catIndex);
+                }
+            }
+        }
+
+        async function loadMarkdown(folder, slug) {
+            contentArea.innerHTML = '<p class="text-slate-400 animate-pulse">Đang tải tài liệu...</p>';
+            updateActiveState(folder, slug);
+
+            // Trên GitHub Pages, fetch sẽ hoạt động hoàn hảo
+            try {
+                const path = `./memory-bank/${folder}/${slug}.md`;
+                const response = await fetch(path);
+                if (!response.ok) throw new Error("File not found");
+                const mdText = await response.text();
+                renderMarkdown(mdText);
+            } catch (err) {
+                contentArea.innerHTML = `
+                    <div class="bg-red-50 p-6 rounded-lg border border-red-200">
+                        <h3 class="text-red-800 font-bold mb-2">Lỗi tải tài liệu</h3>
+                        <p class="text-red-600 text-sm mb-4">Trình duyệt đã chặn việc tải file cục bộ (CORS Policy).</p>
+                        <div class="text-xs text-slate-600 space-y-2">
+                            <p><b>Cách khắc phục 1:</b> Sử dụng trình duyệt <b>Firefox</b> (Firefox cho phép đọc file cục bộ cùng thư mục).</p>
+                            <p><b>Cách khắc phục 2:</b> Đưa project lên <b>GitHub Pages</b> (Hoàn toàn miễn phí).</p>
+                            <p class="mt-2 font-mono text-slate-400">Path: ${folder}/${slug}.md</p>
+                        </div>
+                    </div>`;
+            }
+        }
+
+        function renderMarkdown(mdText) {
+            // Convert MD to HTML using Marked.js
+            contentArea.innerHTML = marked.parse(mdText);
+            
+            // Scroll back to top
+            window.scrollTo(0, 0);
+            
+            // Highlight code blocks with Prism.js
+            Prism.highlightAll();
+        }
+
+        // Start the engine
+        initApp();
+    </script>
+</body>
+</html>
