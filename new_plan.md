@@ -54,7 +54,7 @@ Tạo một ứng dụng web dạng Single Page Application (SPA) siêu nhẹ đ
       },
       {
         "category": "Interview Strategies",
-        "folder": "Interview Startegies",
+        "folder": "Interview Strategies",
         "items": [
           { "slug": "Algorhythm_Patterns", "title": "Algorithm Patterns" },
           { "slug": "Java_BackEnd_Interview", "title": "Java Backend Interview" },

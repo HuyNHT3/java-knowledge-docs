@@ -15,7 +15,8 @@ def generate_bundle():
     for root, dirs, files in os.walk(base_path):
         for file in files:
             if file.endswith(".md"):
-                folder = os.path.basename(root)
+                rel_path = os.path.relpath(root, base_path)
+                folder = rel_path.replace("\\", "/")
                 slug = os.path.splitext(file)[0]
                 # Tạo key theo định dạng "Tên thư mục/Tên file"
                 key = f"{folder}/{slug}"
@@ -23,8 +24,11 @@ def generate_bundle():
                 with open(os.path.join(root, file), "r", encoding="utf-8") as f:
                     db[key] = f.read()
     
-    # In kết quả ra màn hình để bạn copy
-    print(json.dumps(db, indent=4, ensure_ascii=False))
+    # Ghi kết quả ra file bundle.json
+    output_file = "bundle.json"
+    with open(output_file, "w", encoding="utf-8") as f:
+        json.dump(db, f, indent=4, ensure_ascii=False)
+    print(f"Created bundle file successfully at: {output_file}")
 
 if __name__ == "__main__":
     generate_bundle()

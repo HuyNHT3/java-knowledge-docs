@@ -102,9 +102,11 @@
         function handleRouting() {
             const hash = window.location.hash;
             if (hash && hash.startsWith('#/')) {
-                const parts = hash.replace('#/', '').split('/');
-                if (parts.length === 2) {
-                    const [folder, slug] = parts;
+                const pathStr = hash.replace('#/', '');
+                const lastSlashIdx = pathStr.lastIndexOf('/');
+                if (lastSlashIdx !== -1) {
+                    const folder = pathStr.substring(0, lastSlashIdx);
+                    const slug = pathStr.substring(lastSlashIdx + 1);
                     loadMarkdown(decodeURIComponent(folder), decodeURIComponent(slug));
                     return;
                 }

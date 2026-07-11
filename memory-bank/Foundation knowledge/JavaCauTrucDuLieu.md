@@ -3,7 +3,7 @@
 ## MENU
 
 1. [HashMap Internals (hash, bucket, resize)](#1-hashmap-internals)
-2. [Collision & Treeify (Java 8)](#2-collision--treeify)
+2. [Collision & Treeify (Java 8)](#2-collision-treeify)
 3. [ArrayList vs LinkedList](#3-arraylist-vs-linkedlist)
 4. [HashSet vs TreeSet](#4-hashset-vs-treeset)
 5. [ConcurrentHashMap & Multithreading](#5-concurrenthashmap--threads)
@@ -107,9 +107,9 @@ map.merge("B", 1, Integer::sum); // Tăng giá trị B thêm 1
 
 ------------------------------------------------------------------------
 
-## 2. Collision & Treeify (xử lý cho hashmap tránh bị đụng độ)
-
+## 2. Collision & Treeify
 ### 2.1 Collision (Va chạm)
+(xử lý cho hashmap tránh bị đụng độ)
 Xảy ra khi `(n - 1) & hash` trả về cùng một index cho các Key khác nhau. 
 **Hệ quả:** Các Node sẽ cùng nằm trong một Bucket.
 

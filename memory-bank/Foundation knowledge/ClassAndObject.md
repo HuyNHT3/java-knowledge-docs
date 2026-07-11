@@ -528,9 +528,8 @@ Object Usage
 Garbage Collection
 ```
 
----
 
-# 15. equals() và hashCode()
+# 15. equals() và hashCode() <a id="equals-va-hashcode"></a>
 
 Dùng để so sánh object.
 

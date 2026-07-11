@@ -38,5 +38,19 @@
         "title": "Java Core Document"
       }
     ]
+  },
+  {
+    "category": "Database Knowledge",
+    "folder": "Database",
+    "items": [
+      {
+        "slug": "Database_Learning_Roadmap",
+        "title": "Database Learning Roadmap"
+      },
+      {
+        "slug": "Database_Fundermentals",
+        "title": "Database Fundamentals & SQL"
+      }
+    ]
   }
 ]

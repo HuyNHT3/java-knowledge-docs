@@ -1,0 +1,11 @@
+# Đặt định dạng mặc định cho tất cả các file là tự động nhận diện
+* text=auto
+
+# Ép buộc các file mã nguồn và tài liệu luôn sử dụng LF khi lưu trữ trong Git
+# Điều này giúp tránh xung đột line-ending giữa Windows và Linux/macOS
+*.java text eol=lf
+*.md text eol=lf
+*.py text eol=lf
+*.json text eol=lf
+*.html text eol=lf
+*.css text eol=lf
