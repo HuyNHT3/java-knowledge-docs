@@ -266,7 +266,7 @@
                 const response = await fetch(path);
                 if (!response.ok) throw new Error("File not found");
                 const mdText = await response.text();
-                renderMarkdown(mdText);
+                renderMarkdown(mdText, folder);
             } catch (err) {
                 contentArea.innerHTML = `
                     <div class="bg-red-50 p-6 rounded-lg border border-red-200">
@@ -281,9 +281,20 @@
             }
         }
 
-        function renderMarkdown(mdText) {
+        function renderMarkdown(mdText, folder) {
             // Convert MD to HTML using Marked.js
             contentArea.innerHTML = marked.parse(mdText);
+            
+            // Adjust relative image sources to be relative to the markdown folder
+            if (folder) {
+                const images = contentArea.querySelectorAll('img');
+                images.forEach(img => {
+                    const src = img.getAttribute('src');
+                    if (src && !src.startsWith('http://') && !src.startsWith('https://') && !src.startsWith('/') && !src.startsWith('data:')) {
+                        img.src = `./memory-bank/${folder}/${src}`;
+                    }
+                });
+            }
             
             // Scroll back to top
             window.scrollTo(0, 0);

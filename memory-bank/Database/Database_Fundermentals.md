@@ -373,16 +373,26 @@ Hiển thị danh sách khách hàng xếp theo độ tuổi từ cao xuống th
 
 ---
 
-## 8.8 LIMIT
+## 8.8 LIMIT & OFFSET
 ### Mô tả
-Giới hạn số lượng dòng dữ liệu trả về từ câu truy vấn.
+Giới hạn số lượng dòng dữ liệu trả về từ câu truy vấn (`LIMIT`) và bỏ qua một số lượng dòng nhất định từ vị trí bắt đầu (`OFFSET`).
 ### Cú pháp
 ```sql
+-- Lấy 10 dòng đầu tiên
 SELECT * FROM users
 LIMIT 10;
+
+-- Bỏ qua 20 dòng đầu tiên, và lấy 10 dòng tiếp theo (dòng 21 đến 30)
+SELECT * FROM users
+LIMIT 10 OFFSET 20;
+
+-- Hoặc cú pháp viết tắt trong MySQL: LIMIT [offset], [row_count]
+SELECT * FROM users
+LIMIT 20, 10;
 ```
 ### Ứng dụng thực tế
-Phục vụ chức năng phân trang hiển thị (ví dụ: chỉ lấy 10 sản phẩm đầu tiên trên trang chính).
+Dùng để phân trang (Pagination).
+*Ví dụ:* Trang 1 dùng `LIMIT 10 OFFSET 0`. Trang 2 dùng `LIMIT 10 OFFSET 10`. Trang 3 dùng `LIMIT 10 OFFSET 20`.
 
 ---
 
@@ -482,6 +492,335 @@ SELECT COUNT(*) AS total_users_active FROM users;
 
 ---
 
+## 8.16 CASE
+### Mô tả
+Câu lệnh điều kiện trong SQL, tương tự như `if-else` hoặc `switch-case` trong các ngôn ngữ lập trình. Cho phép trả về các giá trị khác nhau tùy thuộc vào điều kiện thỏa mãn.
+### Cú pháp
+```sql
+SELECT name, age,
+       CASE 
+           WHEN age < 18 THEN 'Trẻ em'
+           WHEN age >= 18 AND age < 60 THEN 'Người lớn'
+           ELSE 'Người cao tuổi'
+       END AS age_group
+FROM users;
+```
+### Ứng dụng thực tế
+Phân loại nhóm khách hàng dựa trên độ tuổi hoặc xếp hạng thành viên (như Bạc, Vàng, Kim Cương) dựa trên tổng số tiền mua hàng.
+
+---
+
+## 8.17 COALESCE
+### Mô tả
+Hàm trả về giá trị khác NULL đầu tiên trong danh sách tham số truyền vào. Nếu tất cả đều là NULL thì trả về NULL.
+### Cú pháp
+```sql
+-- Nếu cột email là NULL, trả về 'Không có email'
+SELECT name, COALESCE(email, 'Không có email') AS contact_email 
+FROM users;
+```
+### Ứng dụng thực tế
+Xử lý hiển thị thông tin thay thế khi một cột dữ liệu tùy chọn bị thiếu (NULL).
+
+---
+
+## 8.18 NULL handling (Xử lý NULL)
+### Mô tả
+Trong SQL, `NULL` thể hiện việc không có dữ liệu hoặc dữ liệu chưa xác định. Ta không dùng các toán tử so sánh thông thường như `=`, `<>` để so sánh với `NULL`, mà phải sử dụng toán tử `IS NULL` hoặc `IS NOT NULL`.
+### Cú pháp
+```sql
+-- Lấy danh sách người dùng chưa khai báo email
+SELECT * FROM users
+WHERE email IS NULL;
+
+-- Lấy danh sách người dùng đã khai báo email
+SELECT * FROM users
+WHERE email IS NOT NULL;
+```
+### Ứng dụng thực tế
+Lọc danh sách các đơn hàng chưa được thanh toán (ví dụ: `paid_at IS NULL`) hoặc tài khoản chưa kích hoạt.
+
+---
+
+# 9. SQL Joins
+
+SQL Joins được sử dụng để kết hợp dữ liệu từ hai hoặc nhiều bảng dựa trên một cột chung giữa chúng.
+
+![Minh họa các loại SQL Joins](joining.png)
+
+Giả sử ta có hai bảng:
+
+**Bảng `customers`**:
+| id | name |
+| :--- | :--- |
+| 1 | Huy |
+| 2 | Nam |
+| 3 | Vy |
+
+**Bảng `orders`**:
+| id | customer_id | total |
+| :--- | :--- | :--- |
+| 101 | 1 | 250 |
+| 102 | 2 | 100 |
+| 103 | 99 | 50 | (customer_id = 99 không tồn tại trong bảng customers)
+
+---
+
+## 9.1 INNER JOIN
+### Mô tả
+Trả về các dòng dữ liệu khi có sự khớp nhau (match) giữa hai bảng ở cột liên kết.
+### Cú pháp
+```sql
+SELECT c.name, o.id AS order_id, o.total
+FROM customers c
+INNER JOIN orders o ON c.id = o.customer_id;
+```
+### Kết quả thực tế
+| name | order_id | total |
+| :--- | :--- | :--- |
+| Huy | 101 | 250 |
+| Nam | 102 | 100 |
+
+### Ứng dụng thực tế
+Lấy danh sách các đơn hàng đã có thông tin khách hàng hợp lệ trong hệ thống.
+
+---
+
+## 9.2 LEFT JOIN (LEFT OUTER JOIN)
+### Mô tả
+Trả về tất cả các dòng từ bảng bên trái (`customers`), và các dòng khớp từ bảng bên phải (`orders`). Nếu không có dòng khớp ở bảng bên phải, kết quả sẽ chứa các giá trị `NULL`.
+### Cú pháp
+```sql
+SELECT c.name, o.id AS order_id, o.total
+FROM customers c
+LEFT JOIN orders o ON c.id = o.customer_id;
+```
+### Kết quả thực tế
+| name | order_id | total |
+| :--- | :--- | :--- |
+| Huy | 101 | 250 |
+| Nam | 102 | 100 |
+| Vy | NULL | NULL |
+
+### Ứng dụng thực tế
+Thống kê tất cả khách hàng kèm theo đơn hàng của họ (nếu có). Những khách hàng chưa mua gì vẫn xuất hiện trong danh sách với thông tin đơn hàng là `NULL`.
+
+---
+
+## 9.3 RIGHT JOIN (RIGHT OUTER JOIN)
+### Mô tả
+Ngược lại với LEFT JOIN, trả về tất cả các dòng từ bảng bên phải (`orders`), và các dòng khớp từ bảng bên trái (`customers`). Nếu không khớp, bảng bên trái trả về `NULL`.
+### Cú pháp
+```sql
+SELECT c.name, o.id AS order_id, o.total
+FROM customers c
+RIGHT JOIN orders o ON c.id = o.customer_id;
+```
+### Kết quả thực tế
+| name | order_id | total |
+| :--- | :--- | :--- |
+| Huy | 101 | 250 |
+| Nam | 102 | 100 |
+| NULL | 103 | 50 |
+
+### Ứng dụng thực tế
+Kiểm tra tính nhất quán dữ liệu: Tìm các đơn hàng mồ côi (không có thông tin khách hàng hợp lệ trong hệ thống).
+
+---
+
+## 9.4 FULL JOIN (FULL OUTER JOIN)
+### Mô tả
+Trả về tất cả các dòng khi có sự ăn khớp ở một trong hai bảng (kết hợp cả LEFT JOIN và RIGHT JOIN). Nếu không có sự ăn khớp, các giá trị thiếu sẽ là `NULL`.
+> [!NOTE]
+> MySQL không hỗ trợ từ khóa `FULL JOIN` trực tiếp. Chúng ta giả lập bằng cách sử dụng `UNION` giữa `LEFT JOIN` và `RIGHT JOIN`.
+### Cú pháp (MySQL)
+```sql
+SELECT c.name, o.id AS order_id, o.total
+FROM customers c
+LEFT JOIN orders o ON c.id = o.customer_id
+UNION
+SELECT c.name, o.id AS order_id, o.total
+FROM customers c
+RIGHT JOIN orders o ON c.id = o.customer_id;
+```
+### Kết quả thực tế
+| name | order_id | total |
+| :--- | :--- | :--- |
+| Huy | 101 | 250 |
+| Nam | 102 | 100 |
+| Vy | NULL | NULL |
+| NULL | 103 | 50 |
+
+### Ứng dụng thực tế
+Lấy toàn bộ dữ liệu từ cả hai phía để phân tích báo cáo đối chiếu, bất kể chúng có khớp nhau hay không.
+
+---
+
+## 9.5 CROSS JOIN
+### Mô tả
+Trả về tích Descartes của hai bảng. Mỗi dòng của bảng thứ nhất sẽ được kết hợp với tất cả các dòng của bảng thứ hai.
+### Cú pháp
+```sql
+SELECT c.name, o.id AS order_id
+FROM customers c
+CROSS JOIN orders o;
+```
+*(Nếu bảng customers có 3 dòng, orders có 3 dòng thì kết quả trả về sẽ có 3 x 3 = 9 dòng)*
+
+### Ứng dụng thực tế
+Tạo dữ liệu thử nghiệm (Mock Data) hoặc khi cần sinh tất cả các khả năng kết hợp (ví dụ: sinh danh sách tất cả các kích cỡ áo x màu sắc áo).
+
+---
+
+## 9.6 SELF JOIN
+### Mô tả
+Là kỹ thuật join một bảng với chính nó. Hữu ích khi trong cùng một bảng có mối quan hệ phân cấp (hierarchical relationship).
+### Ví dụ thực tế
+Giả sử ta có bảng `employees` chứa cột `id`, `name` và `manager_id` (trỏ đến `id` của người quản lý trong cùng bảng).
+
+**Bảng `employees`**:
+| id | name | manager_id |
+| :--- | :--- | :--- |
+| 1 | Minh (CEO) | NULL |
+| 2 | Hoàng | 1 |
+| 3 | Sơn | 1 |
+
+### Cú pháp
+```sql
+SELECT e.name AS Employee, m.name AS Manager
+FROM employees e
+LEFT JOIN employees m ON e.manager_id = m.id;
+```
+### Kết quả thực tế
+| Employee | Manager |
+| :--- | :--- |
+| Minh (CEO) | NULL |
+| Hoàng | Minh (CEO) |
+| Sơn | Minh (CEO) |
+
+### Ứng dụng thực tế
+Quản lý cây sơ đồ tổ chức công ty, danh mục sản phẩm đa cấp (Category - Subcategory).
+
+---
+
+# 10. SQL Constraints (Ràng buộc dữ liệu)
+
+Constraints là các quy tắc được áp dụng trên các cột của bảng dữ liệu nhằm ngăn chặn việc lưu trữ dữ liệu không hợp lệ, đảm bảo tính nhất quán (Consistency) và toàn vẹn của cơ sở dữ liệu.
+
+---
+
+## 10.1 PRIMARY KEY (Khóa chính)
+### Mô tả
+Xác định duy nhất một bản ghi trong bảng. Giá trị của cột khóa chính phải là duy nhất (UNIQUE) và không được phép chứa giá trị `NULL`.
+### Cú pháp khi tạo bảng
+```sql
+CREATE TABLE departments (
+    dept_id INT PRIMARY KEY,
+    dept_name VARCHAR(100) NOT NULL
+);
+```
+
+---
+
+## 10.2 FOREIGN KEY (Khóa ngoại)
+### Mô tả
+Là một cột (hoặc nhóm cột) liên kết tới Khóa chính của một bảng khác. Nó thiết lập mối quan hệ cha-con và duy trì tính toàn vẹn tham chiếu (Referential Integrity).
+### Cú pháp khi tạo bảng
+```sql
+CREATE TABLE employees (
+    emp_id INT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    dept_id INT,
+    FOREIGN KEY (dept_id) REFERENCES departments(dept_id)
+);
+```
+
+---
+
+## 10.3 UNIQUE (Duy nhất)
+### Mô tả
+Đảm bảo tất cả các giá trị trong một cột phải khác nhau. Khác với PRIMARY KEY, một bảng có thể có nhiều cột UNIQUE và cột UNIQUE có thể chứa giá trị `NULL` (nếu cột đó không bị ràng buộc bởi NOT NULL).
+### Cú pháp khi tạo bảng
+```sql
+CREATE TABLE employees (
+    emp_id INT PRIMARY KEY,
+    email VARCHAR(100) UNIQUE,
+    phone VARCHAR(15) UNIQUE
+);
+```
+
+---
+
+## 10.4 CHECK (Kiểm tra điều kiện)
+### Mô tả
+Đảm bảo tất cả các giá trị trong cột phải thỏa mãn một điều kiện logic cụ thể.
+### Cú pháp khi tạo bảng
+```sql
+CREATE TABLE employees (
+    emp_id INT PRIMARY KEY,
+    salary DECIMAL(10, 2),
+    age INT,
+    CHECK (salary > 0),
+    CHECK (age >= 18)
+);
+```
+
+---
+
+## 10.5 DEFAULT (Giá trị mặc định)
+### Mô tả
+Cung cấp một giá trị mặc định cho cột khi người dùng không truyền giá trị vào lúc thực hiện câu lệnh `INSERT`.
+### Cú pháp khi tạo bảng
+```sql
+CREATE TABLE employees (
+    emp_id INT PRIMARY KEY,
+    status VARCHAR(20) DEFAULT 'ACTIVE',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+---
+
+## 10.6 NOT NULL (Không được để trống)
+### Mô tả
+Đảm bảo cột đó bắt buộc phải có giá trị, không được để trống (chứa giá trị `NULL`).
+### Cú pháp khi tạo bảng
+```sql
+CREATE TABLE employees (
+    emp_id INT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL
+);
+```
+
+---
+
+## 10.7 Hành vi Cascading (ON DELETE CASCADE & ON UPDATE CASCADE)
+### Mô tả
+Xác định hành động tự động xảy ra đối với các bản ghi con ở bảng chứa Khóa ngoại khi bản ghi cha ở bảng chứa Khóa chính bị Xóa (`DELETE`) hoặc Cập nhật (`UPDATE`).
+
+- **ON DELETE CASCADE**: Khi dòng dữ liệu ở bảng cha bị xóa, toàn bộ các dòng dữ liệu liên kết ở bảng con cũng tự động bị xóa theo.
+- **ON UPDATE CASCADE**: Khi khóa chính ở bảng cha bị thay đổi giá trị, giá trị khóa ngoại tương ứng ở bảng con cũng tự động được cập nhật theo.
+
+### Cú pháp khi tạo bảng
+```sql
+CREATE TABLE orders (
+    order_id INT PRIMARY KEY,
+    customer_id INT,
+    total DECIMAL(10, 2),
+    FOREIGN KEY (customer_id) REFERENCES customers(id) 
+        ON DELETE CASCADE 
+        ON UPDATE CASCADE
+);
+```
+### Ứng dụng thực tế
+- Nếu khách hàng xóa tài khoản (`ON DELETE CASCADE`), hệ thống sẽ tự động xóa tất cả các đơn hàng liên quan của khách hàng đó để tránh rác dữ liệu.
+- Nếu mã số khách hàng thay đổi (`ON UPDATE CASCADE`), toàn bộ đơn hàng của họ tự động được cập nhật theo mã số mới mà không làm đứt gãy liên kết.
+
+> [!WARNING]
+> Sử dụng `ON DELETE CASCADE` cần hết sức cẩn thận vì có thể vô tình xóa hàng loạt dữ liệu quan trọng ở các bảng con mà không có cảnh báo trước.
+
+---
+
 # Tổng kết
 
 Sau khi hoàn thành tài liệu này, bạn cần nắm vững các nội dung cốt lõi sau:
@@ -492,3 +831,5 @@ Sau khi hoàn thành tài liệu này, bạn cần nắm vững các nội dung 
 5. Kiến trúc **Master-Slave (Primary-Replica)** dùng cho mục đích mở rộng tải đọc/ghi.
 6. Phân biệt rõ ràng mục đích sử dụng của hệ thống giao dịch **OLTP** và phân tích dữ liệu **OLAP**.
 7. Thành thạo các câu lệnh **SQL** cơ bản của MySQL để thực hiện trọn vẹn quy trình tạo bảng, quản lý bản ghi (CRUD) và lọc, gom nhóm dữ liệu.
+8. Nắm vững bản chất và cách sử dụng các kiểu **SQL Joins** (Inner, Left, Right, Full, Cross, Self) để kết hợp dữ liệu giữa nhiều bảng.
+9. Hiểu và áp dụng đúng các **SQL Constraints** (Primary Key, Foreign Key, Unique, Check, Default, Not Null) cùng cơ chế xử lý liên đới **Cascading** để đảm bảo tính toàn vẹn dữ liệu.
