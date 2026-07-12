@@ -735,6 +735,19 @@ CREATE TABLE employees (
 );
 ```
 
+### Thêm khóa ngoại vào bảng đã có
+Nếu hai bảng đã tồn tại sẵn, ta sử dụng câu lệnh `ALTER TABLE`:
+```sql
+ALTER TABLE orders
+ADD CONSTRAINT fk_customer
+FOREIGN KEY (customer_id)
+REFERENCES customers(customer_id);
+```
+Trong đó:
+- `fk_customer`: Tên của ràng buộc khóa ngoại (có thể đặt tên tùy ý để sau này dễ quản lý hoặc xóa bỏ).
+- `customer_id`: Cột đóng vai trò khóa ngoại trong bảng hiện tại (`orders`).
+- `customers(customer_id)`: Bảng cha (`customers`) và cột khóa chính được tham chiếu (`customer_id`).
+
 ---
 
 ## 10.3 UNIQUE (Duy nhất)
