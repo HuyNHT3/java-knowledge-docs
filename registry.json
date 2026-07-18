@@ -50,6 +50,10 @@
       {
         "slug": "Database_Fundermentals",
         "title": "Database Fundamentals & SQL"
+      },
+      {
+        "slug": "Database_AdvancedSQL",
+        "title": "Database Advanced SQL & Objects"
       }
     ]
   }

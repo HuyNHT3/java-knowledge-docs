@@ -289,7 +289,349 @@ public class VehicleFactory {
     }
 }
 ```
+## 4. Circuit Breaker Pattern
 
+### Mục đích
+
+Circuit Breaker là một **Resilience Pattern** giúp bảo vệ hệ thống khi gọi đến các service bên ngoài (REST API, Microservice, Third-party API,...).
+
+Thay vì liên tục gửi request đến một service đang bị lỗi hoặc phản hồi quá chậm, Circuit Breaker sẽ **tạm thời ngắt việc gọi** đến service đó và trả về một kết quả thay thế (Fallback), giúp:
+
+- Giảm số lượng request vô ích.
+- Tránh làm cạn kiệt Thread Pool và Connection Pool.
+- Ngăn lỗi lan sang các service khác (Cascade Failure).
+- Tăng tính ổn định của hệ thống.
+
+---
+
+### Ví dụ không sử dụng Circuit Breaker
+
+Giả sử Order Service gọi Payment Service.
+
+```text
+Client
+   │
+   ▼
+Order Service
+   │
+   ▼
+Payment Service
+```
+
+Service:
+
+```java
+@Service
+public class PaymentService {
+
+    private final RestTemplate restTemplate = new RestTemplate();
+
+    public String processPayment() {
+        return restTemplate.getForObject(
+                "http://localhost:8081/payment",
+                String.class
+        );
+    }
+}
+```
+
+Controller:
+
+```java
+@RestController
+@RequestMapping("/orders")
+public class OrderController {
+
+    @Autowired
+    private PaymentService paymentService;
+
+    @GetMapping("/pay")
+    public String pay() {
+        return paymentService.processPayment();
+    }
+}
+```
+
+Nếu Payment Service bị down:
+
+```text
+Client
+    │
+    ▼
+Order Service
+    │
+    ▼
+Payment Service (DOWN)
+    │
+ Timeout...
+    │
+500 Internal Server Error
+```
+
+Mỗi request đều phải chờ timeout, gây lãng phí tài nguyên.
+
+---
+
+### Sử dụng Circuit Breaker với Resilience4j
+
+#### Thêm dependency
+
+```xml
+<dependency>
+    <groupId>org.springframework.cloud</groupId>
+    <artifactId>spring-cloud-starter-circuitbreaker-resilience4j</artifactId>
+</dependency>
+```
+
+#### Áp dụng Circuit Breaker
+
+```java
+@Service
+public class PaymentService {
+
+    private final RestTemplate restTemplate = new RestTemplate();
+
+    @CircuitBreaker(
+            name = "paymentService",
+            fallbackMethod = "fallback"
+    )
+    public String processPayment() {
+
+        return restTemplate.getForObject(
+                "http://localhost:8081/payment",
+                String.class
+        );
+    }
+
+    public String fallback(Exception ex) {
+        return "Payment service is temporarily unavailable.";
+    }
+}
+```
+
+#### Cấu hình
+
+```yaml
+resilience4j:
+  circuitbreaker:
+    instances:
+      paymentService:
+        slidingWindowSize: 5
+        failureRateThreshold: 50
+        waitDurationInOpenState: 20s
+```
+
+Ý nghĩa:
+
+| Thuộc tính | Mô tả |
+|------------|------|
+| slidingWindowSize | Theo dõi 5 request gần nhất |
+| failureRateThreshold | Nếu tỷ lệ lỗi ≥ 50% thì mở Circuit Breaker |
+| waitDurationInOpenState | Sau 20 giây sẽ thử gọi lại service |
+
+---
+
+### Các trạng thái của Circuit Breaker
+
+#### Closed
+
+Là trạng thái mặc định.
+
+```text
+Client
+   │
+   ▼
+Circuit Breaker
+   │
+   ▼
+Payment Service
+```
+
+- Mọi request đều được phép đi qua.
+- Theo dõi tỷ lệ thành công và thất bại.
+
+---
+
+#### Open
+
+Nếu số lượng lỗi vượt ngưỡng cấu hình:
+
+```text
+Client
+   │
+   ▼
+Circuit Breaker (OPEN)
+   │
+   ├─────────────┐
+   ▼             │
+Fallback         │
+                 │
+Payment Service (Không gọi)
+```
+
+- Không gửi request đến Payment Service.
+- Trả về fallback ngay lập tức.
+
+---
+
+#### Half-Open
+
+Sau thời gian chờ:
+
+```text
+Client
+   │
+   ▼
+Circuit Breaker (HALF OPEN)
+   │
+   ▼
+Payment Service
+```
+
+- Cho phép một vài request đi qua.
+- Nếu thành công → Closed.
+- Nếu thất bại → Open.
+
+---
+
+### Khi nào nên sử dụng
+
+Circuit Breaker phù hợp khi gọi đến các service bên ngoài hoặc service có khả năng bị lỗi.
+
+Ví dụ:
+
+- Payment Service
+- Email Service
+- SMS Gateway
+- OpenAI API
+- Google Maps API
+- AWS S3
+- Microservices
+
+Ví dụ:
+
+```text
+Order Service
+       │
+       ├────────► Payment Service
+       │
+       ├────────► Notification Service
+       │
+       └────────► Inventory Service
+```
+
+Nếu một service bị down, Circuit Breaker giúp tránh việc toàn bộ hệ thống phải chờ timeout.
+
+---
+
+### Khi nào không nên sử dụng
+
+Không nên áp dụng Circuit Breaker trong các trường hợp:
+
+#### Database chính
+
+```text
+Spring Boot
+      │
+      ▼
+    MySQL
+```
+
+Nếu Database bị lỗi thì hầu hết nghiệp vụ cũng không thể tiếp tục.
+
+Thay vào đó nên sử dụng:
+
+- Connection Pool
+- Read Replica
+- Retry
+- Database Cluster
+
+---
+
+#### Gọi method trong cùng ứng dụng
+
+```java
+orderService.createOrder();
+inventoryService.updateInventory();
+```
+
+Đây chỉ là lời gọi nội bộ trong JVM.
+
+Không có:
+
+- Network latency
+- Timeout
+- Remote failure
+
+Circuit Breaker gần như không mang lại lợi ích.
+
+---
+
+#### Logic xử lý trong bộ nhớ
+
+Ví dụ:
+
+```java
+public int sum(int a, int b) {
+    return a + b;
+}
+```
+
+Đây không phải remote call nên không cần Circuit Breaker.
+
+---
+
+### Ưu điểm
+
+- Tăng khả năng chịu lỗi (Fault Tolerance).
+- Giảm số lượng request vô ích.
+- Tránh làm cạn kiệt Thread Pool.
+- Giảm thời gian chờ timeout.
+- Hạn chế Cascade Failure.
+- Tăng tính ổn định cho hệ thống Microservices.
+
+---
+
+### Nhược điểm
+
+- Tăng độ phức tạp của hệ thống.
+- Cần cấu hình ngưỡng phù hợp.
+- Fallback không phải lúc nào cũng khả thi.
+- Không phù hợp với mọi loại service.
+
+---
+
+### Best Practice
+
+Circuit Breaker thường được kết hợp với các pattern khác:
+
+```text
+Client
+    │
+    ▼
+Retry
+    │
+    ▼
+Time Limiter
+    │
+    ▼
+Circuit Breaker
+    │
+    ▼
+Fallback
+    │
+    ▼
+External Service
+```
+
+Thông thường:
+
+- Retry xử lý các lỗi tạm thời.
+- Time Limiter giới hạn thời gian chờ.
+- Circuit Breaker ngắt các request khi service liên tục gặp lỗi.
+- Fallback trả về dữ liệu thay thế hoặc thông báo phù hợp.
+
+Đây là kiến trúc phổ biến trong các hệ thống Microservices sử dụng Spring Boot.
 ------------------------------------------------------------------------
 
 ## 4. Cách sử dụng

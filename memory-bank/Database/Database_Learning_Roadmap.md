@@ -67,6 +67,11 @@
 - [ ] INTERSECT
 - [ ] EXCEPT
 
+### 4.5 Advanced Objects & Transactions (MySQL)
+- [ ] Procedure (MySQL)
+- [ ] Transaction (MySQL)
+- [ ] View (MySQL)
+
 ---
 
 ## 5. Data Modeling
